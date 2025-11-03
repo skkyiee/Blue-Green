@@ -97,10 +97,12 @@ pipeline {
             steps {
                 echo "Testing new deployment on port ${env.IDLE_PORT}..."
                 
-                // Use 'timeout' instead of 'sleep'
-                bat "timeout /t 10 /nobreak" // Wait 10 seconds for container to start
+                // FIX: Use the 'sleep' step instead of 'timeout'
+                echo "Waiting 10 seconds for container to start..."
+                sleep time: 10, unit: 'SECONDS'
                 
                 // Use 'curl' (assuming it's in your Windows PATH)
+                echo "Running curl test..."
                 bat "curl -f http://localhost:${env.IDLE_PORT}/"
             }
         }
