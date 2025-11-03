@@ -91,25 +91,27 @@ pipeline {
         }
 
         stage('5. Promote: Switch Traffic') {
-            // This 'input' step makes the switch manual. Jenkins will pause here.
-            input "Deployment to ${env.IDLE_ENV_NAME} passed testing. Switch live traffic?"
-            
-            steps {
-                echo "Switching NGINX to point to ${env.IDLE_ENV_NAME} on port ${env.IDLE_PORT}"
-                
-                // Create the new NGINX config fragment
-                def newUpstreamConfig = "upstream live_app { server 127.0.0.1:${env.IDLE_PORT}; }"
-                
-                // Overwrite the NGINX config file
-                bat "echo ${newUpstreamConfig} > ${env.NGINX_CONFIG}"
-                
-                // Reload NGINX to apply changes
-                // We must 'cd' to the NGINX directory to run the command
-                bat "cd ${env.NGINX_PATH} && nginx.exe -s reload"
-                
-                echo "Traffic successfully switched to ${env.IDLE_ENV_NAME}."
+                steps {
+                    // FIX 1: 'input' is now inside 'steps' and has correct syntax
+                    input message: "Deployment to ${env.IDLE_ENV_NAME} passed testing. Switch live traffic?"
+                    
+                    echo "Switching NGINX to point to ${env.IDLE_ENV_NAME} on port ${env.IDLE_PORT}"
+
+                    // FIX 2: All Groovy logic is wrapped in a 'script' block
+                    script {
+                        // Create the new NGINX config fragment
+                        def newUpstreamConfig = "upstream live_app { server 127.0.0.1:${env.IDLE_PORT}; }"
+                        
+                        // Overwrite the NGINX config file
+                        bat "echo ${newUpstreamConfig} > ${env.NGINX_CONFIG}"
+                        
+                        // Reload NGINX to apply changes
+                        bat "cd ${env.NGINX_PATH} && nginx.exe -s reload"
+                    }
+                    
+                    echo "Traffic successfully switched to ${env.IDLE_ENV_NAME}."
+                }
             }
-        }
 
         stage('6. Cleanup Old Live Environment') {
             steps {
