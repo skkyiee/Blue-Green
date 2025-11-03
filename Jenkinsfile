@@ -60,10 +60,25 @@ pipeline {
                 script {
                     def dockerImage = "${IMAGE_NAME}:${IMAGE_TAG}"
                     
-                    // Stop and remove any old container in the idle slot
-                    // "|| echo" prevents the pipeline from failing if the container doesn't exist
-                    bat "docker stop ${env.IDLE_ENV_NAME} || echo 'container not found'"
-                    bat "docker rm ${env.IDLE_ENV_NAME} || echo 'container not found'"
+                    // --- START FIX ---
+                    // We use try-catch because the container might not exist,
+                    // and we don't want that to fail the build.
+                    
+                    try {
+                        echo "Attempting to stop old ${env.IDLE_ENV_NAME} container..."
+                        bat "docker stop ${env.IDLE_ENV_NAME}"
+                    } catch (e) {
+                        echo "Container ${env.IDLE_ENV_NAME} was not running. This is normal."
+                    }
+                    
+                    try {
+                        echo "Attempting to remove old ${env.IDLE_ENV_NAME} container..."
+                        bat "docker rm ${env.IDLE_ENV_NAME}"
+                    } catch (e) {
+                        echo "Container ${env.IDLE_ENV_NAME} did not exist. This is normal."
+                    }
+                    // --- END FIX ---
+                    
                     
                     // Run the new container in the idle slot
                     echo "Starting new ${env.IDLE_ENV_NAME} container..."
@@ -115,10 +130,22 @@ pipeline {
 
         stage('6. Cleanup Old Live Environment') {
             steps {
-                // This stage stops the container that is no longer receiving traffic
-                echo "Stopping old ${env.LIVE_ENV_NAME} container..."
-                bat "docker stop ${env.LIVE_ENV_NAME} || echo 'container not found'"
-                bat "docker rm ${env.LIVE_ENV_NAME} || echo 'container not found'"
+                script {
+                    echo "Stopping old ${env.LIVE_ENV_NAME} container..."
+                    
+                    try {
+                        bat "docker stop ${env.LIVE_ENV_NAME}"
+                    } catch (e) {
+                        echo "Container ${env.LIVE_ENV_NAME} was not running. This is normal."
+                    }
+                    
+                    try {
+                        echo "Attempting to remove old ${env.LIVE_ENV_NAME} container..."
+                        bat "docker rm ${env.LIVE_ENV_NAME}"
+                    } catch (e) {
+                        echo "Container ${env.LIVE_ENV_NAME} did not exist. This is normal."
+                    }
+                }
             }
         }
     }
