@@ -108,27 +108,34 @@ pipeline {
         }
 
         stage('5. Promote: Switch Traffic') {
-                steps {
-                    // FIX 1: 'input' is now inside 'steps' and has correct syntax
-                    input message: "Deployment to ${env.IDLE_ENV_NAME} passed testing. Switch live traffic?"
-                    
-                    echo "Switching NGINX to point to ${env.IDLE_ENV_NAME} on port ${env.IDLE_PORT}"
+            steps {
+                input message: "Deployment to ${env.IDLE_ENV_NAME} passed testing. Switch live traffic?"
+                
+                echo "Switching NGINX to point to ${env.IDLE_ENV_NAME} on port ${env.IDLE_PORT}"
 
-                    // FIX 2: All Groovy logic is wrapped in a 'script' block
-                    script {
-                        // Create the new NGINX config fragment
-                        def newUpstreamConfig = "upstream live_app { server 127.0.0.1:${env.IDLE_PORT}; }"
-                        
-                        // Overwrite the NGINX config file
-                        bat "echo ${newUpstreamConfig} > ${env.NGINX_CONFIG}"
-                        
-                        // Reload NGINX to apply changes
-                        bat "cd ${env.NGINX_PATH} && nginx.exe -s reload"
-                    }
+                script {
+                    // Create the new NGINX config fragment
+                    def newUpstreamConfig = "upstream live_app { server 127.0.0.1:${env.IDLE_PORT}; }"
                     
-                    echo "Traffic successfully switched to ${env.IDLE_ENV_NAME}."
+                    // Overwrite the NGINX config file
+                    bat "echo ${newUpstreamConfig} > ${env.NGINX_CONFIG}"
+                    
+                    // --- START FIX ---
+                    // Try to reload NGINX. If it fails (e.g., not running), start it.
+                    try {
+                        echo "Attempting to reload NGINX..."
+                        bat "cd ${env.NGINX_PATH} && nginx.exe -s reload"
+                    } catch (e) {
+                        echo "Reload failed. Assuming NGINX is not running. Attempting to start..."
+                        // Use "start nginx.exe" to launch it in the background
+                        bat "cd ${env.NGINX_PATH} && start nginx.exe"
+                    }
+                    // --- END FIX ---
                 }
+                
+                echo "Traffic successfully switched to ${env.IDLE_ENV_NAME}."
             }
+        }
 
         stage('6. Cleanup Old Live Environment') {
             steps {
